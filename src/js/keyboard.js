@@ -21,7 +21,7 @@ const _releaseKey = code => delete KEYS[code];
 
 addEventListener('keydown', e => {
   // prevent itch.io from scrolling the page up/down
-  // e.preventDefault();
+  e.preventDefault();
 
   if (!e.repeat) {
     KEYS[e.code] = performance.now();

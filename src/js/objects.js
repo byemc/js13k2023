@@ -3,10 +3,12 @@ class Object {
     step() {}
 }
 
+
 class Room extends Object {
-    constructor() {
+    constructor(name="") {
         super();
         this.objects = [];
+        this.name = name; // needs to be unique, otherwise the searching code will just use the first one it finds.
     }
 
     draw() {
@@ -18,6 +20,14 @@ class Room extends Object {
     drawGUI() {
 
     }
+
+    keyDown(key) {
+    }
+
+    keyUp(key) {
+    }
+
+
 
     step() {
         for (let i = 0; i < this.objects.length; i++) {

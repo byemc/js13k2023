@@ -1,51 +1,58 @@
 
 // Holds canvas, context and adds endpoints for graphics
 
-const floor = function (...args) {
-    return Math.floor(...args);
-}
-
+import { pi } from "./utils.js"
 class Canvas {
     constructor(id="c", w=128, h=128) {
         this.canvas = document.getElementById(id);
         this.canvas.width = w;
         this.canvas.height = h;
 
-        this.context = this.canvas.getContext("2d");
-        this.context.imageSmoothingEnabled = false;
-        this.context.textBaseline = "top";
+        this.ctx = this.canvas.getContext("2d");
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.textBaseline = "top";
 
         this.width = this.canvas.width;
         this.height = this.canvas.height;
+
+        // camera
+        this.cX = 0;
+        this.cY = 0;
     }
 
     fill(c="black") {
-        this.context.fillStyle = c;
-        this.context.fillRect(0, 0, this.width, this.height);
+        this.ctx.fillStyle = c;
+        this.ctx.fillRect(0, 0, this.width, this.height);
     }
     
     drawImage(image, x, y, width = image.width, height = image.height) {
         console.debug("drawImage", image, x, y, width, height);
-        this.context.drawImage(image, x, y, width, height);
+        this.ctx.drawImage(image, x-this.cX, y-this.cY, width, height);
     }
 
-    sliceImage(image, sx, sy, sw, sh, dx, dy, dw = sw, dh = sh) {
-        this.context.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+    sliceImage(img, x, y, w, h, cropX, cropY, cropW, cropH, direction=0) {
+        // console.debug("sliceImage", img, x, y, w, h, cropX, cropY, cropW, cropH, direction);
+        this.ctx.save();
+        this.ctx.translate((x+w/2)-this.cX, (y+h/2)-this.cY);
+        this.ctx.rotate(direction * pi/180);
+        this.ctx.drawImage(img, cropX, cropY, cropW, cropH, -w/2, -h/2, w, h);
+        this.ctx.restore();
+        // console.log(`${x}, ${y}, ${w}, ${h}, ${cropX}, ${cropY}, ${cropW}, ${cropH}`);
     }
 
     drawText(text, x, y, c="white", size=16, font="monospace") {
-        this.context.fillStyle = c;
-        this.context.font = `${size}px ${font}`;
-        this.context.fillText(text, x, y);
+        this.ctx.fillStyle = c;
+        this.ctx.font = `${size}px ${font}`;
+        this.ctx.fillText(text, x, y);
     }
 
     drawLine(x1, y1, x2, y2, c="white", w=1) {
-        this.context.strokeStyle = c;
-        this.context.lineWidth = w;
-        this.context.beginPath();
-        this.context.moveTo(x1, y1);
-        this.context.lineTo(x2, y2);
-        this.context.stroke();
+        this.ctx.strokeStyle = c;
+        this.ctx.lineWidth = w;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x1-this.cX, y1-this.cY);
+        this.ctx.lineTo(x2-this.cX, y2-this.cY);
+        this.ctx.stroke();
     }
 }
 

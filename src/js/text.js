@@ -5,14 +5,15 @@ class TextRenderer {
         this.fontimg = fontimg; // MUST BE AN IMAGE OBJECT
         this.fontWidth = 7;
         this.fontHeight = 7;
-        this.fontChars = "abcdefghijklmnopqrstuvwxyz1234567890.,!?:;)(~";
+        this.fontChars = "abcdefghijklmnopqrstuvwxyz1234567890.,!?:;)(~>";
         this.canvas = canvas;
     }
 
-    drawLetter(letter, x, y) {
+    drawLetter(letter, x, y, substituteOK=0) {
         let index = this.fontChars.indexOf(letter.toLowerCase());
         if (index == -1) {
-            return;
+            if (!substituteOK) return;
+            this.canvas.drawText(letter, x, y, "#ffffff", 7, "monospace");
         }
         let sx = index * this.fontWidth;
         let sy = 0;
@@ -22,7 +23,7 @@ class TextRenderer {
         if (letter == ",") {
             yOffset = -1;
         }
-        this.canvas.sliceImage(this.fontimg, sx, sy, this.fontWidth, this.fontHeight, x, y-yOffset, this.fontWidth, this.fontHeight);
+        this.canvas.sliceImage(this.fontimg, x, y + yOffset, this.fontWidth, this.fontHeight, sx, sy, this.fontWidth, this.fontHeight);
     }
 
     render(text, x, y) {
@@ -44,6 +45,7 @@ class TextRenderer {
         // It'll show the error on-screen.
     
         this.canvas.fill("#00000080") // 50% black
+        
         this.render(err, 0, 0);
         throw err;
     }
