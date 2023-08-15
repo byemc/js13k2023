@@ -26,7 +26,6 @@ class Canvas {
     }
     
     drawImage(image, x, y, width = image.width, height = image.height) {
-        console.debug("drawImage", image, x, y, width, height);
         this.ctx.drawImage(image, x-this.cX, y-this.cY, width, height);
     }
 
