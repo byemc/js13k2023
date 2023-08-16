@@ -302,7 +302,8 @@ let init = () => {
     console.log("Images loaded.")
     currentRoom.updateStatus("Loading complete!");
     setTimeout(() => {
-        
+        let rm = getParameter("room")
+        (rm ? changeRoom(searchForRoom(rm)) : changeRoom(searchForRoom("menu")));
         main();
     }, 1000);
 }
