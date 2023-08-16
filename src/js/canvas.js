@@ -33,7 +33,7 @@ class Canvas {
         // console.debug("sliceImage", img, x, y, w, h, cropX, cropY, cropW, cropH, direction);
         this.ctx.save();
         this.ctx.translate((x+w/2)-this.cX, (y+h/2)-this.cY);
-        this.ctx.rotate(direction * pi/180);
+        this.ctx.rotate(direction);
         this.ctx.drawImage(img, cropX, cropY, cropW, cropH, -w/2, -h/2, w, h);
         this.ctx.restore();
         // console.log(`${x}, ${y}, ${w}, ${h}, ${cropX}, ${cropY}, ${cropW}, ${cropH}`);

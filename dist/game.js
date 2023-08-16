@@ -1,12 +1,15 @@
 (() => {
   // src/js/config.js
   var GAME_TITLE = "Untitled JS13K23 Game.";
-  var WIDTH = 160;
-  var HEIGHT = 144;
+  var WIDTH = 256;
+  var HEIGHT = 240;
+  var SCALE = 2 << 4;
 
   // src/js/utils.js
-  var pi = Math.PI;
-  var convertTileToScreen = (x, y) => ({x: x << 4, y: y << 4});
+  var params = new URLSearchParams(location.search);
+  var convertTileToScreen = (x, y) => ({x: x * SCALE, y: y * SCALE});
+  var getParameter = (key) => key ? params.get(key) : 0;
+  var hash = window.location.hash.split("?")[0].slice(1);
 
   // src/js/canvas.js
   var Canvas = class {
@@ -27,13 +30,12 @@
       this.ctx.fillRect(0, 0, this.width, this.height);
     }
     drawImage(image, x, y, width = image.width, height = image.height) {
-      console.debug("drawImage", image, x, y, width, height);
       this.ctx.drawImage(image, x - this.cX, y - this.cY, width, height);
     }
     sliceImage(img, x, y, w, h, cropX, cropY, cropW, cropH, direction = 0) {
       this.ctx.save();
       this.ctx.translate(x + w / 2 - this.cX, y + h / 2 - this.cY);
-      this.ctx.rotate(direction * pi / 180);
+      this.ctx.rotate(direction);
       this.ctx.drawImage(img, cropX, cropY, cropW, cropH, -w / 2, -h / 2, w, h);
       this.ctx.restore();
     }
@@ -61,20 +63,21 @@
       this.fontChars = "abcdefghijklmnopqrstuvwxyz1234567890.,!?:;)(~>";
       this.canvas = canvas2;
     }
-    drawLetter(letter, x, y, substituteOK = 0) {
+    drawLetter(letter, x, y, substituteOK = 1) {
+      let {canvas: canvas2, fontWidth, fontHeight} = this;
       let index = this.fontChars.indexOf(letter.toLowerCase());
       if (index == -1) {
         if (!substituteOK)
           return;
-        this.canvas.drawText(letter, x, y, "#ffffff", 7, "monospace");
+        canvas2.drawText(letter, x, y, "#ffffff", 7, "monospace");
       }
-      let sx = index * this.fontWidth;
+      let sx = index * fontWidth;
       let sy = 0;
       let yOffset = 0;
       if (letter == ",") {
         yOffset = -1;
       }
-      this.canvas.sliceImage(this.fontimg, x, y + yOffset, this.fontWidth, this.fontHeight, sx, sy, this.fontWidth, this.fontHeight);
+      canvas2.sliceImage(this.fontimg, x + canvas2.cX, y + yOffset + canvas2.cY, fontWidth, fontHeight, sx, sy, fontWidth, fontHeight);
     }
     render(text2, x, y) {
       let heightOffset = 0;
@@ -141,12 +144,12 @@
   var whichKeyDown = () => Object.keys(KEYS).filter((code) => _isKeyDown(code));
 
   // src/js/game.js
-  console.debug(convertTileToScreen(1, 1));
   var assets = {
     images: {
       splash: "../img/splash1.webp",
       font: "../img/hampsterfont.webp",
-      tiles: "../img/t.webp"
+      tiles: "../img/t.webp",
+      selector: "../img/selector.webp"
     },
     spritesheets: {
       player: [
@@ -155,18 +158,17 @@
         {x: 32},
         {x: 48}
       ]
-    },
-    tilesets: {
-      castle: [
-        {x: 0, y: 0},
-        {x: 16, y: 0}
-      ]
     }
+  };
+  var tileTypes = {
+    1: 1,
+    2: 2
   };
   var running = 1;
   var currentFrame = 0;
   var targetFrames = 60;
   var lastFrameTime = performance.now();
+  var debug = getParameter("debug") || 0;
   var rooms = [];
   var debugStatuses = [];
   var canvas = new Canvas("c", WIDTH, HEIGHT);
@@ -195,7 +197,7 @@
       if (rooms[i].name == name)
         return i;
     }
-    throw new Error("Room not found:" + name);
+    throw new Error("Room not found:" + name + ". Are you sure it's pushed?");
   };
   var changeRoom = (index) => {
     currentRoom = rooms[index];
@@ -220,68 +222,124 @@
       changeRoom(searchForRoom("menu"));
   };
   var menuRoom = new Room("menu");
-  var menuOptions = [
+  menuRoom.options = [
     {label: "Start Game", action: (_) => {
       changeRoom(searchForRoom("game"));
-    }},
-    {label: "Debug Room", action: (_) => changeRoom(searchForRoom("debug"))},
-    {label: "Reload", action: (_) => {
-      running = 0;
-      location.reload();
     }}
   ];
-  var menuIndex = 0;
+  menuRoom.index = 0;
   menuRoom.draw = () => {
     canvas.fill("black");
   };
   menuRoom.drawGUI = () => {
     text.render(GAME_TITLE, 8, 7 * 4);
-    for (let i = 0; i < menuOptions.length; i++) {
-      if (i == menuIndex) {
+    for (let i = 0; i < menuRoom.options.length; i++) {
+      if (i == menuRoom.index) {
         text.render(">", 8, 7 * (i + 5));
       }
-      text.render(menuOptions[i].label, 16, 7 * (i + 5));
+      text.render(menuRoom.options[i].label, 16, 7 * (i + 5));
     }
   };
   menuRoom.keyDown = (key) => {
     if (pressedLastFrame.includes(key))
       return;
-    switch (key) {
-      case "ArrowUp":
-        menuIndex--;
-        break;
-      case "ArrowDown":
-        menuIndex++;
-        break;
-      case "Enter":
-        menuOptions[menuIndex].action();
-        break;
-    }
-    if (menuIndex >= menuOptions.length)
-      menuIndex = 0;
-    if (menuIndex < 0)
-      menuIndex = menuOptions.length - 1;
+    const keyActions = {
+      ArrowUp: () => menuRoom.index--,
+      ArrowDown: () => menuRoom.index++,
+      Enter: () => menuRoom.options[menuRoom.index].action()
+    };
+    const action = keyActions[key];
+    if (action)
+      action();
+    if (menuRoom.index >= menuRoom.options.length)
+      menuRoom.index = 0;
+    if (menuRoom.index < 0)
+      menuRoom.index = menuRoom.options.length - 1;
   };
-  var currentLevelData = {
-    tiles: [
-      {id: 1, x: 1, y: 1},
-      {id: 123, x: 2, y: 2}
-    ]
+  var getTileType = (x, y, data) => {
+    for (let i = 0; i < data.tiles.length; i++) {
+      let tile = data.tiles[i];
+      if (tile.x == x && tile.y == y)
+        return tileTypes[tile.id];
+    }
+    return 0;
+  };
+  var renderTiles = (data) => {
+    for (let i = 0; i < data.tiles.length; i++) {
+      let tile = data.tiles[i];
+      let tileLocation = convertTileToScreen(tile.x, tile.y);
+      let tId = tile.id;
+      if (tile.id == 2) {
+        tId = 3;
+        getTileType(tile.x, tile.y - 1, data) == 2 ? tId += 1 : tId += 0;
+        getTileType(tile.x, tile.y + 1, data) == 2 ? tId += 2 : tId += 0;
+        getTileType(tile.x - 1, tile.y, data) == 2 ? tId += 4 : tId += 0;
+        getTileType(tile.x + 1, tile.y, data) == 2 ? tId += 8 : tId += 0;
+      }
+      canvas.sliceImage(assets.images.tiles, tileLocation.x, tileLocation.y, SCALE, SCALE, tId * 16, 0, 16, 16);
+    }
   };
   var gameRoom = new Room("game");
+  gameRoom.data = {tiles: []};
   gameRoom.draw = () => {
     canvas.fill("black");
-    for (let i = 0; i < currentLevelData.tiles.length; i++) {
-      let tile = currentLevelData.tiles[i];
-      if (tile.id > currentLevelData.length)
-        tile.id = 0;
-      let tileLocation = convertTileToScreen(tile.x, tile.y);
-      canvas.sliceImage(assets.images.tiles, tileLocation.x, tileLocation.y, 16, 16, tile.id * 16, 0, 16, 16);
-    }
+    renderTiles(gameRoom.data);
+  };
+  var levelEditor = new Room("editor");
+  levelEditor.currentTile = {x: 0, y: 0, id: 0};
+  levelEditor.data = {tiles: []};
+  levelEditor.step = (_) => {
+    let tileLocation = convertTileToScreen(levelEditor.currentTile.x, levelEditor.currentTile.y);
+    if (tileLocation.x < canvas.cX)
+      canvas.cX = tileLocation.x;
+    if (tileLocation.x >= canvas.cX + 256)
+      canvas.cX = tileLocation.x - canvas.width;
+    if (tileLocation.y < canvas.cY)
+      canvas.cY = tileLocation.y;
+    if (tileLocation.y > canvas.cY + 224)
+      canvas.cY = tileLocation.y - canvas.height;
+    debugStatuses.push("Current tile:" + levelEditor.currentTile.x + "," + levelEditor.currentTile.y);
+    debugStatuses.push("Current tile ID:" + levelEditor.currentTile.id);
+    debugStatuses.push("Camera:" + canvas.cX + "," + canvas.cY);
+  };
+  levelEditor.keyDown = (key) => {
+    if (pressedLastFrame.includes(key))
+      return;
+    const {currentTile, data} = levelEditor;
+    const {x, y, id} = currentTile;
+    const keyActions = {
+      ArrowUp: () => currentTile.y--,
+      ArrowDown: () => currentTile.y++,
+      ArrowLeft: () => currentTile.x--,
+      ArrowRight: () => currentTile.x++,
+      PageUp: () => currentTile.id++,
+      PageDown: () => currentTile.id--,
+      KeyP: () => console.log(data),
+      Enter: () => {
+        data.tiles = data.tiles.filter((tile) => tile.x !== x || tile.y !== y);
+        data.tiles.push({id, x, y});
+      }
+    };
+    const action = keyActions[key];
+    if (action)
+      action();
+  };
+  levelEditor.draw = () => {
+    canvas.fill("#010101");
+    renderTiles(levelEditor.data);
+    canvas.drawLine(-canvas.width * 100, 0, canvas.width * 100, 0, "white");
+    canvas.drawLine(0, -canvas.height * 100, 0, canvas.height * 100, "white");
+    text.render("(0,0)", 1 - canvas.cX, 1 - canvas.cY);
+    let tileLocation = convertTileToScreen(levelEditor.currentTile.x, levelEditor.currentTile.y);
+    canvas.ctx.globalAlpha = 0.5;
+    canvas.sliceImage(assets.images.tiles, tileLocation.x, tileLocation.y, SCALE, SCALE, levelEditor.currentTile.id * 16, 0, 16, 16);
+    canvas.ctx.globalAlpha = 1;
+    canvas.drawImage(assets.images.selector, tileLocation.x, tileLocation.y, SCALE, SCALE);
   };
   rooms.push(loadingRoom);
   rooms.push(menuRoom);
   rooms.push(gameRoom);
+  rooms.push(levelEditor);
   rooms.push(debugRoom);
   currentRoom = rooms[roomIndex];
   var main = () => {
@@ -294,20 +352,24 @@
       return;
     currentFrame++;
     debugStatuses = [];
+    currentRoom.step();
     currentRoom.draw();
     currentRoom.drawGUI();
     let currentKeys = whichKeyDown();
     for (let i = 0; i < currentKeys.length; i++) {
-      debugStatuses.push(currentKeys[i]);
+      if (debug)
+        debugStatuses.push(currentKeys[i]);
       currentRoom.keyDown(currentKeys[i]);
     }
     pressedLastFrame = currentKeys;
-    text.render("FPS:" + Math.round(1e3 / delta), 0, 0);
-    text.render(currentRoom.name, canvas.width - 8 * currentRoom.name.length, 0);
-    if (currentFrame <= 60 * 5) {
-      debugStatuses.push("Debug mode.");
-      debugStatuses.push("Dimensions:" + canvas.width + "x" + canvas.height);
-      debugStatuses.push("Have fun!");
+    if (debug) {
+      text.render("FPS:" + Math.round(1e3 / delta), 0, 0);
+      text.render(currentRoom.name, canvas.width - 8 * currentRoom.name.length, 0);
+      debugStatuses.push("Debug mode");
+      if (currentFrame <= 60 * 5) {
+        debugStatuses.push("Dimensions:" + canvas.width + "x" + canvas.height);
+        debugStatuses.push("Have fun!");
+      }
     }
     for (let i = 0; i < debugStatuses.length; i++) {
       text.render(debugStatuses[i], 0, canvas.height - 7 * (debugStatuses.length - i));
@@ -324,13 +386,9 @@
         assets.images[image] = img;
       };
     }
-    console.log(assets.images);
     console.log("Images loaded.");
     currentRoom.updateStatus("Loading complete!");
-    canvas.fill("#222034");
-    canvas.drawImage(splash, canvas.width / 2 - splash.width / 2, canvas.height / 2 - splash.height / 2);
     setTimeout(() => {
-      currentRoom = rooms[1];
       main();
     }, 1e3);
   };

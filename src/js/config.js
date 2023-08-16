@@ -1,8 +1,9 @@
 // Holds all the config for your game.
 
-const GAME_TITLE = "Untitled JS13K23 Game."
+export const GAME_TITLE = "Untitled JS13K23 Game."
 
-const WIDTH = 160; // pixels
-const HEIGHT = 144; // pixels
+export const WIDTH = 256; // pixels
+export const HEIGHT = 240; // pixels
 
-export { GAME_TITLE, WIDTH, HEIGHT };
+export const SCALE = 2<<4;
+
