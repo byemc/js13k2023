@@ -2,7 +2,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1">
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: light dark; }
   body { display: flex; justify-content: center; align-items: center; height: 100vh;}
   canvas, body {
     margin: 0;
@@ -10,8 +10,8 @@
     user-select: none;
   }
   canvas {
-    width: 768px;
-    height: 768px;
+    width: 100%;
+    max-height: 100vh;
     object-fit: contain;
     image-rendering: pixelated;
     margin: auto;
@@ -19,6 +19,5 @@
 </style>
 <body>
   <canvas id=c></canvas>
-  <script src="lzs.js"></script>
   <script type="module" src=game.js></script>
 </body>

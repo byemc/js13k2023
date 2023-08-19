@@ -1,31 +1,17 @@
 
-import { WIDTH, HEIGHT, GAME_TITLE, SCALE } from "./config.js";
+import { WIDTH, HEIGHT, GAME_TITLE } from "./config.js";
 import { Canvas } from "./canvas.js";
 import { TextRenderer } from "./text.js";
 import { Room, Object } from "./objects.js";
-import { whichKeyDown } from "./keyboard.js";
-import { convertTileToScreen, getParameter, hash } from "./utils.js";
+import { isKeyUp, whichKeyDown } from "./keyboard.js";
+import { getParameter } from "./utils.js";
 
 let assets = {
     images: {
         splash: "../img/splash1.webp",
         font: "../img/hampsterfont.webp",
-        tiles: "../img/t.webp",
         selector: "../img/selector.webp",
     },
-    spritesheets: {
-        player: [
-            {x: 0}, // looking up
-            {x: 16}, // looking right
-            {x: 32}, // looking down
-            {x: 48} // looking left
-        ]
-    }
-}
-
-const tileTypes = {
-    1: 1, // floor
-    2: 2, // wall
 }
 
 let running = 1;
@@ -90,6 +76,7 @@ let searchForRoom = (name) => {
 const changeRoom = (index) => {
     currentRoom = rooms[index];
     roomIndex = index;
+    currentRoom.init();
 }
 
 const loadingRoom = new Room("loading");
@@ -101,20 +88,21 @@ loadingRoom.updateStatus = (status) => {
 }
 
 const debugRoom = new Room("debug");
+debugRoom.init = () => {
+    if (!debug) changeRoom(searchForRoom("menu"));
+}
 debugRoom.draw = () => {
     canvas.fill("black");
 }
 debugRoom.drawGUI = () => {
     debugStatuses.push("Current Frame:"+currentFrame+`(~${Math.round((currentFrame/targetFrames)*100)/100} sec)`);
 }
-debugRoom.keyDown = (key) => {
-    if (key == "Escape") changeRoom(searchForRoom("menu"));
-}
 
 const menuRoom = new Room("menu");
 menuRoom.options = [
     {"label": "Start Game", "action": _ => {changeRoom(searchForRoom("game"))}},
 ];
+if (debug) menuRoom.options.push({"label": "Debug Room", "action": _ => {changeRoom(searchForRoom("debug"))}});
 menuRoom.index = 0;
 
 menuRoom.draw = () => {
@@ -143,105 +131,8 @@ menuRoom.keyDown = (key) => {
     if (menuRoom.index >= menuRoom.options.length) menuRoom.index = 0;
     if (menuRoom.index < 0) menuRoom.index = menuRoom.options.length-1;
 }
-
-const getTileType = (x, y, data) => {
-    for (let i = 0; i < data.tiles.length; i++) {
-        let tile = data.tiles[i];
-        if (tile.x == x && tile.y == y) return tileTypes[tile.id];
-    }
-    return 0;
-}
-    
-
-const renderTiles = (data) => {
-    for (let i = 0; i < data.tiles.length; i++) {
-        let tile = data.tiles[i];
-        let tileLocation = convertTileToScreen(tile.x, tile.y);
-        let tId = tile.id;
-
-        if (tile.id == 2) {
-            tId = 3;
-            // connect walls to each other.
-            // check the tile above, below, left, and right of this one. if it is also id 2, then set the corresponding variable to 1
-            getTileType(tile.x, tile.y-1, data) == 2 ? tId += 1 : tId += 0;
-            getTileType(tile.x, tile.y+1, data) == 2 ? tId += 2 : tId += 0;
-            getTileType(tile.x-1, tile.y, data) == 2 ? tId += 4 : tId += 0;
-            getTileType(tile.x+1, tile.y, data) == 2 ? tId += 8 : tId += 0;
-        }
-
-        canvas.sliceImage(assets.images.tiles, tileLocation.x, tileLocation.y, SCALE, SCALE, tId*16, 0, 16, 16);
-    }
-}
-
-const gameRoom = new Room("game"); 
-gameRoom.data = { tiles: [ ] };
-gameRoom.draw = () => {
-    canvas.fill("black");
-
-    renderTiles(gameRoom.data);
-}
-
-const levelEditor = new Room("editor");
-levelEditor.currentTile = { x: 0, y: 0, id: 0 };
-levelEditor.data = { tiles : [] };
-levelEditor.step = _ => {
-
-    // place the camera at the center of the current tile if it is outside the screen
-    let tileLocation = convertTileToScreen(levelEditor.currentTile.x, levelEditor.currentTile.y);
-    if (tileLocation.x < canvas.cX) canvas.cX = tileLocation.x;
-    if (tileLocation.x >= canvas.cX+256) canvas.cX = tileLocation.x-canvas.width;
-    if (tileLocation.y < canvas.cY) canvas.cY = tileLocation.y;
-    if (tileLocation.y > canvas.cY+224) canvas.cY = tileLocation.y-canvas.height;
-
-
-    debugStatuses.push("Current tile:"+levelEditor.currentTile.x+","+levelEditor.currentTile.y);
-    debugStatuses.push("Current tile ID:"+levelEditor.currentTile.id);
-    debugStatuses.push("Camera:"+canvas.cX+","+canvas.cY);
-}
-levelEditor.keyDown = (key) => {
-    if (pressedLastFrame.includes(key)) return;
-
-    const { currentTile, data } = levelEditor;
-    const { x, y, id } = currentTile;
-
-    const keyActions = {
-        ArrowUp: () => currentTile.y--,
-        ArrowDown: () => currentTile.y++,
-        ArrowLeft: () => currentTile.x--,
-        ArrowRight: () => currentTile.x++,
-        PageUp: () => currentTile.id++,
-        PageDown: () => currentTile.id--,
-        KeyP: () => console.log(data),
-        Enter: () => {
-            data.tiles = data.tiles.filter(tile => tile.x !== x || tile.y !== y);
-            data.tiles.push({ id, x, y });
-        },
-    };
-
-    const action = keyActions[key];
-    if (action) action();
-};
-
-levelEditor.draw = () => {
-    canvas.fill("#010101");
-
-    renderTiles(levelEditor.data);
-
-    canvas.drawLine(-canvas.width*100, 0, canvas.width*100, 0, "white");
-    canvas.drawLine(0, -canvas.height*100, 0, canvas.height*100, "white");
-    text.render("(0,0)", 1-canvas.cX, 1-canvas.cY)
-
-    let tileLocation = convertTileToScreen(levelEditor.currentTile.x, levelEditor.currentTile.y);
-    canvas.ctx.globalAlpha = 0.5;
-    canvas.sliceImage(assets.images.tiles, tileLocation.x, tileLocation.y, SCALE, SCALE, levelEditor.currentTile.id*16, 0, 16, 16);
-    canvas.ctx.globalAlpha = 1;
-    canvas.drawImage(assets.images.selector, tileLocation.x, tileLocation.y, SCALE, SCALE);
-}
-
 rooms.push(loadingRoom);
 rooms.push(menuRoom);
-rooms.push(gameRoom);
-rooms.push(levelEditor);
 rooms.push(debugRoom);
 
 currentRoom = rooms[roomIndex];
@@ -264,6 +155,7 @@ let main = () => { // main game loop
 
     let currentKeys = whichKeyDown();
     for (let i = 0; i < currentKeys.length; i++) {
+        if (isKeyUp(currentKeys[i]) && pressedLastFrame.includes(currentKeys[i])) continue;
         if (debug) debugStatuses.push(currentKeys[i]);
         currentRoom.keyDown(currentKeys[i]);
     }
@@ -272,7 +164,7 @@ let main = () => { // main game loop
 
     if (debug) {
         text.render("FPS:" + Math.round(1000 / delta), 0, 0);
-        text.render(currentRoom.name, canvas.width-8*(currentRoom.name.length), 0);
+        text.render(currentRoom.name, canvas.width-(text.charWidth*(currentRoom.name.length)), 0);
 
         debugStatuses.push("Debug mode");
         if (currentFrame <= 60*5) {
@@ -282,7 +174,10 @@ let main = () => { // main game loop
     }
 
     for (let i = 0; i < debugStatuses.length; i++) {
-        text.render(debugStatuses[i], 0, canvas.height-7*(debugStatuses.length-i));
+        // console.debug(debugStatuses[i]);
+        if (typeof(debugStatuses[i]) == "string") text.render(debugStatuses[i], 0, canvas.height-text.charHeight*(debugStatuses.length-i));
+        if (typeof(debugStatuses[i]) == "object") {text.render(debugStatuses[i].msg, 0, canvas.height-text.charHeight*(debugStatuses.length-i)); debugStatuses[i].ttl--;}
+
     }
 
     lastFrameTime = now;
@@ -302,8 +197,7 @@ let init = () => {
     console.log("Images loaded.")
     currentRoom.updateStatus("Loading complete!");
     setTimeout(() => {
-        let rm = getParameter("room")
-        (rm ? changeRoom(searchForRoom(rm)) : changeRoom(searchForRoom("menu")));
+        (getParameter("room") ? changeRoom(searchForRoom(getParameter("room"))) : changeRoom(searchForRoom("menu")));
         main();
     }, 1000);
 }

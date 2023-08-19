@@ -1,7 +1,5 @@
 
 // Holds canvas, context and adds endpoints for graphics
-
-import { pi } from "./utils.js"
 class Canvas {
     constructor(id="c", w=128, h=128) {
         this.canvas = document.getElementById(id);

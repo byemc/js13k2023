@@ -3,8 +3,11 @@
 class TextRenderer {
     constructor(canvas, fontimg) {
         this.fontimg = fontimg; // MUST BE AN IMAGE OBJECT
-        this.fontWidth = 7;
-        this.fontHeight = 7;
+        this.fontWidth = 5;
+        this.fontHeight = 5;
+        this.spacing = 1;
+        this.charWidth = this.fontWidth + this.spacing;
+        this.charHeight = this.fontHeight + this.spacing;
         this.fontChars = "abcdefghijklmnopqrstuvwxyz1234567890.,!?:;)(~>";
         this.canvas = canvas;
     }
@@ -39,7 +42,7 @@ class TextRenderer {
                 xOffset = 0;
                 continue;
             }
-            this.drawLetter(text[i], x + (xOffset * this.fontWidth), y + (heightOffset * this.fontHeight));
+            this.drawLetter(text[i], (x + (xOffset * (this.fontWidth + this.spacing))), y + (heightOffset * this.fontHeight));
             xOffset++;
         }
     }
