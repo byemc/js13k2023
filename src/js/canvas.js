@@ -51,6 +51,12 @@ class Canvas {
         this.ctx.lineTo(x2-this.cX, y2-this.cY);
         this.ctx.stroke();
     }
+
+    drawRect(x, y, w, h, c="white") {
+        this.ctx.fillStyle = c;
+        this.ctx.fillRect(x-this.cX, y-this.cY, w, h);
+    }
+    
 }
 
 export { Canvas };

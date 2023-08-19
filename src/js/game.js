@@ -18,6 +18,7 @@ let running = 1;
 
 let currentFrame = 0;
 let targetFrames = 60;
+let runAtMonitorRefreshRate = 0;
 
 let lastFrameTime = performance.now();
 
@@ -87,15 +88,61 @@ loadingRoom.updateStatus = (status) => {
     text.render(status, 0, 0);
 }
 
-const debugRoom = new Room("debug");
+const debugRoom = new Room("debug");  
+debugRoom.index = 0;
+debugRoom.submenu = "main";
+debugRoom.roomList = [];
+debugRoom.options = {
+    "main": [
+        {"label": "Change Room", "action": _ => {debugRoom.submenu = "changeRoom"; debugRoom.index = 0;}},
+        {"label": "Change Target FPS", "action": _ => {debugRoom.submenu = "changeTargetFPS"; debugRoom.index = 0;}},
+        {"label": "Unlock refresh rate", "action": _ => {runAtMonitorRefreshRate = !runAtMonitorRefreshRate;}},
+        {"label": "Exit", "action": _ => {changeRoom(searchForRoom("menu"))}},
+    ],
+    "changeRoom": [],
+    "changeTargetFPS": [
+        {"label": "60", "action": _ => {targetFrames = 60;}},
+        {"label": "30", "action": _ => {targetFrames = 30;}},
+    ],
+};
 debugRoom.init = () => {
     if (!debug) changeRoom(searchForRoom("menu"));
+    for (let i = 0; i < rooms.length; i++) {
+        debugRoom.roomList.push({"label": rooms[i].name, "action": _ => {changeRoom(i);}});
+    }
+    debugRoom.options.changeRoom = debugRoom.roomList;
 }
+
+debugRoom.keyDown = (key) => {
+    if (pressedLastFrame.includes(key)) return;
+
+    const keyActions = {
+        ArrowUp: () => debugRoom.index--,
+        ArrowDown: () => debugRoom.index++,
+        Enter: () => debugRoom.options[debugRoom.submenu][debugRoom.index].action(),
+        Escape: () => {debugRoom.submenu = "main"; debugRoom.index = 0;},
+    };
+
+    const action = keyActions[key];
+    if (action) action();
+    if (debugRoom.index >= debugRoom.options[debugRoom.submenu].length) debugRoom.index = 0;
+    if (debugRoom.index < 0) debugRoom.index = debugRoom.options[debugRoom.submenu].length-1;
+}
+
 debugRoom.draw = () => {
     canvas.fill("black");
+
+    canvas.drawRect(Math.sin(currentFrame /(canvas.width / 2)) * canvas.width - 32, canvas.height-64, 32, 32, "#222034");
 }
 debugRoom.drawGUI = () => {
+    text.render("Debug Room", 0, 15);
+    text.render(">", 0, 20+7*(debugRoom.index + 1));
+    for (let i = 0; i < debugRoom.options[debugRoom.submenu].length; i++) {
+        text.render(debugRoom.options[debugRoom.submenu][i].label, 8, 20+7*(i+1));
+    }
+
     debugStatuses.push("Current Frame:"+currentFrame+`(~${Math.round((currentFrame/targetFrames)*100)/100} sec)`);
+    debugStatuses.push(`CubePos:${Math.sin(currentFrame /(canvas.width / 2)) * canvas.width - 32}`)
 }
 
 const menuRoom = new Room("menu");
@@ -131,19 +178,65 @@ menuRoom.keyDown = (key) => {
     if (menuRoom.index >= menuRoom.options.length) menuRoom.index = 0;
     if (menuRoom.index < 0) menuRoom.index = menuRoom.options.length-1;
 }
+
+// The following rooms should be removed before submitting.
+const testing_graphing = new Room("testing_graphing");
+testing_graphing.yScale = 10;
+testing_graphing.a = 0;
+testing_graphing.b = 0;
+testing_graphing.c = (canvas.height/4)*testing_graphing.yScale;
+
+testing_graphing.keyDown = (key) => {
+    if (pressedLastFrame.includes(key)) return;
+
+    const keyActions = {
+        ArrowUp: () => testing_graphing.a += 0.25,
+        ArrowDown: () => testing_graphing.a -= 0.25,
+        ArrowLeft: () => testing_graphing.b -= 0.25,
+        ArrowRight: () => testing_graphing.b += 0.25,
+        KeyA: () => testing_graphing.c -= 0.25,
+        KeyD: () => testing_graphing.c += 0.25,
+    };
+
+    const action = keyActions[key];
+    if (action) action();
+}
+
+testing_graphing.draw = () => {
+    // draws a quadratic graph
+    // y = ax^2 + bx + c
+    canvas.fill("black");
+    canvas.drawLine(0, canvas.height/2, canvas.width, canvas.height/2, "white");
+    canvas.drawLine(canvas.width/2, 0, canvas.width/2, canvas.height, "white");
+    for (let i = 0; i < canvas.width; i++) {
+        let x = i - canvas.width/2;
+        let y = (testing_graphing.a * (x**2) + testing_graphing.b * x + testing_graphing.c) / testing_graphing.yScale;
+        canvas.drawRect(i, canvas.height/2 - y, 1, 1, "white");
+    }
+}
+
+testing_graphing.drawGUI = () => {
+    text.render(`y = ${testing_graphing.a}x^2 + ${testing_graphing.b}x + ${testing_graphing.c}`, 0, 0);
+}
+
 rooms.push(loadingRoom);
 rooms.push(menuRoom);
 rooms.push(debugRoom);
 
+// REMOVE THESE
+rooms.push(testing_graphing);
+
 currentRoom = rooms[roomIndex];
+
+
 
 let main = () => { // main game loop
     if (!running) return;
     requestAnimationFrame(main);
+
     let now = performance.now();
     let delta = now - lastFrameTime;
-
-    if (delta < 1000 / targetFrames) return;
+    if (!runAtMonitorRefreshRate && delta < 1000 / targetFrames) return;
 
     currentFrame++;
     debugStatuses = [];
@@ -163,7 +256,7 @@ let main = () => { // main game loop
     pressedLastFrame = currentKeys;    
 
     if (debug) {
-        text.render("FPS:" + Math.round(1000 / delta), 0, 0);
+        text.render(`${Math.round(1000 / delta)}/${targetFrames}FPS`, 0, 0);
         text.render(currentRoom.name, canvas.width-(text.charWidth*(currentRoom.name.length)), 0);
 
         debugStatuses.push("Debug mode");
