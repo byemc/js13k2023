@@ -18,6 +18,13 @@ class Canvas {
         this.cY = 0;
     }
 
+    setDimensions (w, h) {
+        this.canvas.width = w;
+        this.canvas.height = h;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+    }
+
     fill(c="black") {
         this.ctx.fillStyle = c;
         this.ctx.fillRect(0, 0, this.width, this.height);

@@ -16,20 +16,18 @@ class TextRenderer {
         let { canvas, fontWidth, fontHeight } = this;
 
         let index = this.fontChars.indexOf(letter.toLowerCase());
-        if (index == -1) {
+        if (index === -1) {
             if (!substituteOK) return;
-            canvas.drawText(letter, x, y, "#ffffff", 7, "monospace");
+            canvas.drawText(letter, x, y, "#ffffff", 5, "monospace");
         }
         let sx = index * fontWidth;
         let sy = 0;
         // draw image to context
         let yOffset = 0;
         // if the letter is ",", offset it by -1
-        if (letter == ",") {
-            yOffset = -1;
-        }
+        if (letter === ",") yOffset = 1;
         canvas.sliceImage(this.fontimg, x+canvas.cX, y + yOffset + canvas.cY, fontWidth, fontHeight, sx, sy, fontWidth, fontHeight); 
-            // canvas.cX and canvas.cY are the camera offsets. we dont want to have text flying off the screen.
+            // canvas.cX and canvas.cY are the camera offsets. we don't want to have text flying off the screen.
             // you can counteract this by specifying x-cX and x-cY when calling this.
     }
 
@@ -37,7 +35,7 @@ class TextRenderer {
         let heightOffset = 0;
         let xOffset = 0;
         for (let i = 0; i < text.length; i++) {
-            if (text[i] == "\n") {
+            if (text[i] === "\n") {
                 heightOffset++;
                 xOffset = 0;
                 continue;
