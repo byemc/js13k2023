@@ -3,7 +3,14 @@ import { WIDTH, HEIGHT, GAME_TITLE } from "./config.js";
 import { Canvas } from "./canvas.js";
 import { TextRenderer } from "./text.js";
 import { Room, GameObject } from "./objects.js";
-import { getParameter } from "./utils.js";
+import {
+    pi,
+    getParameter,
+    getDirectionBetweenTwoPoints,
+    degreesToRadians,
+    randomInt,
+    calculateDistanceBetweenTwoPoints
+} from "./utils.js";
 import { getMousePos } from "./inputs/mouse.js";
 import { isKeyUp, whichKeyDown } from "./inputs/keyboard.js";
 
@@ -16,6 +23,7 @@ let assets = {
         font: "hampsterfont.webp",
         island: "island.webp",
         debug_ball: "ball.webp",
+        boats: "boats.webp"
     },
 }
 
@@ -55,12 +63,13 @@ splash.onload = () => {
 
 // Entity class is here because otherwise every entity would need the canvas passed into it
 class Entity extends GameObject {
-    constructor(x=0, y=0, spritesheet=null, sprite=null) {
+    constructor(id, x=0, y=0, spritesheet=null, sprite=null) {
         super();
         this.x = x;
         this.y = y;
         this.sprite = sprite;
-        this.physics = 0;
+        this.direction = 0;
+        this.id = id;
         this.hitbox = {x: 0, y: 0, w: 0, h: 0};
     }
 
@@ -68,6 +77,8 @@ class Entity extends GameObject {
         canvas.drawImage(this.sprite, this.x, this.y);
     }
 }
+
+
 
 // Create all the game rooms
 let roomIndex = 0;
@@ -92,8 +103,6 @@ loadingRoom.updateStatus = (status) => {
     canvas.fill("#222034");
     canvas.drawImage(splash, canvas.width / 2 - splash.width / 2, canvas.height / 2 - splash.height / 2);
     text.render(status, 0, 0);
-
-    
 }
 
 const debugRoom = new Room("debug");  
@@ -153,6 +162,7 @@ menuRoom.options = [
 ];
 if (debug) menuRoom.options.push({"label": "Debug Room", "action": _ => {changeRoom(searchForRoom("debug"))}});
 menuRoom.index = 0;
+menuRoom.init = () => {debugStatuses.push({msg: "Dimensions:"+canvas.width+"x"+canvas.height, ttl:60*5})};
 menuRoom.drawGUI = () => {
     text.render(GAME_TITLE, 8, 7*4);
     for (let i = 0; i < menuRoom.options.length; i++) {
@@ -177,10 +187,92 @@ menuRoom.keyDown = (key) => {
     if (menuRoom.index < 0) menuRoom.index = menuRoom.options.length-1;
 }
 
+class Boat extends Entity {
+    constructor(x, y, sprite, speed =1 ) {
+        super(randomInt(100, 10000), x, y);
+        this.boatbody = 0;
+        this.boatsail = 0;
+        this.sprite = sprite;
+        this.speed = speed;
+        this.target = {x: canvas.width/2, y: canvas.height/2}
+    }
+
+
+    step() {
+        debugStatuses.push(`Speed:${this.speed}, XY: ${this.x}, ${this.y}`)
+        if (!(currentFrame % randomInt(30, 120))) {
+            this.direction = getDirectionBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y);
+            this.x += this.speed * Math.cos(this.direction);
+            this.y += this.speed * Math.sin(this.direction);
+        }
+
+        if (calculateDistanceBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y) < 5) gameRoom.destroy(this.id);
+    }
+
+    draw() {
+        const displayDirection = this.direction + (pi / 2); // should move PI0.5 clockwise
+        canvas.sliceImage(this.sprite, this.x-2.5, this.y-4, 5, 8, (5*this.boatbody), 0, 5, 8, displayDirection); //body
+        canvas.sliceImage(this.sprite, this.x-2.5, this.y-4, 5, 8, (5*this.boatsail), 8, 5, 8, displayDirection); //sail
+
+        if (debug) canvas.drawLine(this.x, this.y, this.target.x, this.target.y);
+    }
+
+    onclick(pos) {
+        this.target = pos;
+    }
+}
+
 const gameRoom = new Room("game");
+gameRoom.wave = 0;
+gameRoom.boatCount = 0;
+gameRoom.boatSpeed = 0;
+
+gameRoom.destory = id => {
+    gameRoom.objects.findIndex(x => x.id === id);
+}
+
+gameRoom.startWave = _ => {
+    let { wave, boatCount, boatSpeed } = gameRoom;
+    boatCount = Math.floor(1 + (wave * 4));
+    boatSpeed = 1 + (wave * 1.1);
+
+    for (let i = 0; i <= boatCount; i++) {
+        const randomDirection = degreesToRadians(Math.random()*360);
+        const boatX = canvas.width/2 + (randomInt(150, 250) * Math.cos(randomDirection));
+        const boatY = canvas.height/2 + (randomInt(150, 250) * Math.sin(randomDirection));
+        console.debug(`Boat ${i}: ${boatX}, ${boatY}`)
+        gameRoom.objects.push(new Boat(boatX, boatY, assets.images.boats, boatSpeed));
+
+    }
+    console.log(typeof(gameRoom.objects[0]))
+}
+
+gameRoom.init = _ => gameRoom.startWave();
+
 gameRoom.background = "#305182"
 gameRoom.draw = () => {
     canvas.drawImage(assets.images.island, (canvas.width/2 - assets.images.island.width/2)-canvas.cX, (canvas.height/2 - assets.images.island.height/2)-canvas.cY);
+    for (const item of gameRoom.objects) {
+        item.draw();
+    }
+}
+gameRoom.step = _ => {
+    let numberOfBoats = 0;
+    for (const item of gameRoom.objects) {
+        if (item.constructor.name === "Boat") numberOfBoats++;
+        item.step();
+    }
+    console.log(numberOfBoats);
+    // if (numberOfBoats === 0) {gameRoom.wave++; setTimeout(gameRoom.startWave, 3000)}
+}
+gameRoom.drawGUI = () => {
+    debugStatuses.push("Current wave:"+gameRoom.wave);
+    debugStatuses.push("Current Frame:"+currentFrame+`(~${Math.round((currentFrame/targetFrames)*100)/100} sec)`);
+}
+gameRoom.onclick = (pos) => {
+    for (const item of gameRoom.objects) {
+        item.onclick(pos);
+    }
 }
 
 rooms.push(loadingRoom, menuRoom, debugRoom, gameRoom);
@@ -203,7 +295,6 @@ let main = () => { // main game loop
     if (!runAtMonitorRefreshRate && delta < 1000 / targetFrames) return;
 
     currentFrame++;
-    debugStatuses = [];
 
     currentRoom.step();
 
@@ -225,26 +316,27 @@ let main = () => { // main game loop
         text.render(currentRoom.name, canvas.width-(text.charWidth*(currentRoom.name.length)), 0);
 
         debugStatuses.push("Debug mode");
-        if (currentFrame <= 60*5) {
-            debugStatuses.push("Dimensions:"+canvas.width+"x"+canvas.height);
-            debugStatuses.push("Have fun!");
-        }
+
     }
 
-    console.debug(debugStatuses)
+    // console.debug(debugStatuses);
+    let shitToSplice = [];
     for (let i = 0; i < debugStatuses.length; i++) {
         switch (typeof (debugStatuses[i])) {
             case "string":
                 text.render(debugStatuses[i], 0, canvas.height - text.charHeight * (debugStatuses.length - i));
+                shitToSplice.push(i);
                 break;
             case "object":
                 console.debug("OBJECT!!")
                 text.render(debugStatuses[i].msg, 0, canvas.height-text.charHeight*(debugStatuses.length-i));
                 debugStatuses[i].ttl--;
+                if (debugStatuses[i].ttl < 0) shitToSplice.push(i);
                 break;
         }
-        if (typeof(debugStatuses[i]) == "object") {}
-
+    }
+    for (let index in shitToSplice) {
+        debugStatuses.splice(index);
     }
 
     currentRoom.draw();
@@ -257,6 +349,8 @@ let init = () => {
     // begin loading all the assets.
     currentRoom.updateStatus("Loading images...");
     let errors = [];
+    const imagesToLoad = Object.keys(assets.images).length;
+    let imagesLoaded = 0;
     for (let image in assets.images) {
         currentRoom.updateStatus("Loading image " + image);
         let img = new Image();
@@ -264,24 +358,34 @@ let init = () => {
         img.onerror = (err) => {
             errors.push(err);
             console.error(err);
+
         }
         img.onload = () => {
+            console.log("Loaded "+ image);
             assets.images[image] = img;
+            imagesLoaded++;
+            errors.push("Loaded "+ image);
         }
     }
-    console.log("Images loaded.")
     currentRoom.updateStatus("Loading complete!");
 
 
-    setTimeout(() => {
+    let waitingForLoadingToFinish = setInterval(() => {
+        if (imagesLoaded === imagesToLoad) {
+            clearInterval(waitingForLoadingToFinish);
+            setTimeout(() => {
+                console.log(assets.images);
+                (getParameter("room") ? changeRoom(searchForRoom(getParameter("room"))) : changeRoom(searchForRoom("menu")));
+                currentRoom.init();
+                main();
+            }, 1000);
+        }
         if (errors.length > 0) {
             for (let i = 0; i < errors.length; i++) {
-                text.render(errors[i], 0, 5*i+1);
+                text.render(errors[i], 0, 6*i+6);
             }
         }
-        (getParameter("room") ? changeRoom(searchForRoom(getParameter("room"))) : changeRoom(searchForRoom("menu")));
-        main();
-    }, 1000);
+    }, 100);
 }
 
 
