@@ -14,7 +14,7 @@ let assets = {
     images: {
         splash: "splash1.webp",
         font: "hampsterfont.webp",
-        catapult: "catapult.webp",
+        island: "island.webp",
         debug_ball: "ball.webp",
     },
 }
@@ -177,11 +177,13 @@ menuRoom.keyDown = (key) => {
     if (menuRoom.index < 0) menuRoom.index = menuRoom.options.length-1;
 }
 
+const gameRoom = new Room("game");
+gameRoom.background = "#305182"
+gameRoom.draw = () => {
+    canvas.drawImage(assets.images.island, (canvas.width/2 - assets.images.island.width/2)-canvas.cX, (canvas.height/2 - assets.images.island.height/2)-canvas.cY);
+}
 
-
-rooms.push(loadingRoom);
-rooms.push(menuRoom);
-rooms.push(debugRoom);
+rooms.push(loadingRoom, menuRoom, debugRoom, gameRoom);
 
 
 currentRoom = rooms[roomIndex];
