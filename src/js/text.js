@@ -8,7 +8,7 @@ class TextRenderer {
         this.spacing = 1;
         this.charWidth = this.fontWidth + this.spacing;
         this.charHeight = this.fontHeight + this.spacing;
-        this.fontChars = "abcdefghijklmnopqrstuvwxyz1234567890.,!?:;)(~>";
+        this.fontChars = "abcdefghijklmnopqrstuvwxyz1234567890.,!?:;)(~>_-";
         this.canvas = canvas;
     }
 
@@ -18,7 +18,7 @@ class TextRenderer {
         let index = this.fontChars.indexOf(letter.toLowerCase());
         if (index === -1) {
             if (!substituteOK) return;
-            canvas.drawText(letter, x, y, "#ffffff", 5, "monospace");
+            canvas.drawText(letter, x+canvas.cX, y+ canvas.cY, "#ffffff", 5, "monospace");
         }
         let sx = index * fontWidth;
         let sy = 0;

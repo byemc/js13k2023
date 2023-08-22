@@ -1,10 +1,10 @@
-class Object {
+class GameObject {
     draw() {}
     step() {}
 }
 
 
-class Room extends Object {
+class Room extends GameObject {
     constructor(name="") {
         super();
         this.objects = [];
@@ -33,6 +33,10 @@ class Room extends Object {
     keyUp(key) {
     }
 
+    onclick(pos){
+
+    }
+
 
 
     step() {
@@ -44,4 +48,4 @@ class Room extends Object {
 
 
 
-export { Object, Room };
+export { GameObject, Room };
