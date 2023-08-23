@@ -9,7 +9,7 @@ import {
     getDirectionBetweenTwoPoints,
     degreesToRadians,
     randomInt,
-    calculateDistanceBetweenTwoPoints
+    calculateDistanceBetweenTwoPoints, findDuplicateIds
 } from "./utils.js";
 import { getMousePos } from "./inputs/mouse.js";
 import { isKeyUp, whichKeyDown } from "./inputs/keyboard.js";
@@ -188,25 +188,29 @@ menuRoom.keyDown = (key) => {
 }
 
 class Boat extends Entity {
-    constructor(x, y, sprite, speed =1 ) {
-        super(randomInt(100, 10000), x, y);
+    constructor(x, y, sprite, speed =1, id=randomInt(100, 10000), target={x:0,y:0}) {
+        super(id, x, y);
         this.boatbody = 0;
         this.boatsail = 0;
         this.sprite = sprite;
         this.speed = speed;
-        this.target = {x: canvas.width/2, y: canvas.height/2}
+        if (speed === 0) speed = 0.5;
+        this.stepspeed = randomInt(Math.floor(100/speed), Math.floor(1000/speed));
+        this.target = target;
     }
 
 
     step() {
-        debugStatuses.push(`Speed:${this.speed}, XY: ${this.x}, ${this.y}`)
-        if (!(currentFrame % randomInt(30, 120))) {
+        if (!(currentFrame % this.stepspeed)) {
             this.direction = getDirectionBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y);
-            this.x += this.speed * Math.cos(this.direction);
-            this.y += this.speed * Math.sin(this.direction);
+            this.x += 2 * Math.cos(this.direction);
+            this.y += 2 * Math.sin(this.direction);
         }
 
-        if (calculateDistanceBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y) < 5) gameRoom.destroy(this.id);
+        if (calculateDistanceBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y) < 5) {
+            console.debug(`${this.id} is going bye-bye!`);
+            gameRoom.remove(this.id);
+        }
     }
 
     draw() {
@@ -214,7 +218,7 @@ class Boat extends Entity {
         canvas.sliceImage(this.sprite, this.x-2.5, this.y-4, 5, 8, (5*this.boatbody), 0, 5, 8, displayDirection); //body
         canvas.sliceImage(this.sprite, this.x-2.5, this.y-4, 5, 8, (5*this.boatsail), 8, 5, 8, displayDirection); //sail
 
-        if (debug) canvas.drawLine(this.x, this.y, this.target.x, this.target.y);
+        if (debug) text.render(`${this.id}`, this.x - 2, this.y - 2);
     }
 
     onclick(pos) {
@@ -222,32 +226,49 @@ class Boat extends Entity {
     }
 }
 
+const endRoom = new Room("end");
+endRoom.background = "#3051820A"
+endRoom.drawGUI = () => {
+    const words = "You won! Well done.";
+    text.render(words, (canvas.width/2)-((words.length*6)/2), 40);
+}
+endRoom.wonGame = () => {
+    changeRoom(searchForRoom("end"));
+}
+
 const gameRoom = new Room("game");
-gameRoom.wave = 0;
+gameRoom.wave = getParameter("wave");
+if (!gameRoom.wave) gameRoom.wave = 0;
+
+const validTargets = [
+    {x: 92, y: 97},
+    {x: 240, y: 120}
+]
+
+gameRoom.wavePendingStart = 0;
 gameRoom.boatCount = 0;
 gameRoom.boatSpeed = 0;
 
-gameRoom.destory = id => {
-    gameRoom.objects.findIndex(x => x.id === id);
-}
+console.log(typeof(gameRoom.remove))
 
 gameRoom.startWave = _ => {
     let { wave, boatCount, boatSpeed } = gameRoom;
+    gameRoom.wavePendingStart = 0;
     boatCount = Math.floor(1 + (wave * 4));
-    boatSpeed = 1 + (wave * 1.1);
+    boatSpeed = 3 + (wave * 1.1);
 
     for (let i = 0; i <= boatCount; i++) {
         const randomDirection = degreesToRadians(Math.random()*360);
         const boatX = canvas.width/2 + (randomInt(150, 250) * Math.cos(randomDirection));
         const boatY = canvas.height/2 + (randomInt(150, 250) * Math.sin(randomDirection));
+        const boatTarget = validTargets[Math.floor(Math.random()*validTargets.length)];
         console.debug(`Boat ${i}: ${boatX}, ${boatY}`)
-        gameRoom.objects.push(new Boat(boatX, boatY, assets.images.boats, boatSpeed));
+        gameRoom.objects.push(new Boat(boatX, boatY, assets.images.boats, boatSpeed, i*100, boatTarget));
 
     }
-    console.log(typeof(gameRoom.objects[0]))
 }
 
-gameRoom.init = _ => gameRoom.startWave();
+// gameRoom.init = _ => gameRoom.startWave();
 
 gameRoom.background = "#305182"
 gameRoom.draw = () => {
@@ -262,8 +283,8 @@ gameRoom.step = _ => {
         if (item.constructor.name === "Boat") numberOfBoats++;
         item.step();
     }
-    console.log(numberOfBoats);
-    // if (numberOfBoats === 0) {gameRoom.wave++; setTimeout(gameRoom.startWave, 3000)}
+    if (numberOfBoats === 0 && !gameRoom.wavePendingStart) {gameRoom.wave++; gameRoom.wavePendingStart=1; setTimeout(gameRoom.startWave, 3000)};
+    if (gameRoom.wave >= 401) endRoom.wonGame();
 }
 gameRoom.drawGUI = () => {
     debugStatuses.push("Current wave:"+gameRoom.wave);
@@ -275,15 +296,25 @@ gameRoom.onclick = (pos) => {
     }
 }
 
-rooms.push(loadingRoom, menuRoom, debugRoom, gameRoom);
+
+
+
+rooms.push(loadingRoom, menuRoom, debugRoom, gameRoom, endRoom);
 
 
 currentRoom = rooms[roomIndex];
 
-canvas.canvas.addEventListener('mousedown', function(evt) {
+let lastMousePos = {x:0,y:0}
+
+const sendMouseToCurrentRoom = evt => {
     const mousePos = getMousePos(canvas.canvas, evt);
     currentRoom.onclick(mousePos);
-}, false);
+}
+canvas.canvas.addEventListener('mousedown', evt=>sendMouseToCurrentRoom(evt), false);
+canvas.canvas.addEventListener('mousemove', evt => {
+    const mousePos = getMousePos(canvas.canvas, evt);
+    lastMousePos={x:mousePos.x,y:mousePos.y}
+})
 
 
 let main = () => { // main game loop
@@ -300,6 +331,8 @@ let main = () => { // main game loop
 
     canvas.fill(currentRoom.background);
 
+    currentRoom.draw();
+
     currentRoom.drawGUI();
 
     let currentKeys = whichKeyDown();
@@ -309,14 +342,20 @@ let main = () => { // main game loop
         currentRoom.keyDown(currentKeys[i]);
     }
     
-    pressedLastFrame = currentKeys;    
+    pressedLastFrame = currentKeys;
 
+    const fps = Math.round(1000 / delta);
+    let fpsColor;
+    (fps > 50) ? fpsColor = "#0d7200" : "#b24d0d";
+    (fps < 40) ? fpsColor = "#8a0000" : "#b24d0d";
+    canvas.drawRect(0,0,20,5, fpsColor);
+    text.render(`${fps}/${targetFrames}FPS`, 0, 0);
     if (debug) {
-        text.render(`${Math.round(1000 / delta)}/${targetFrames}FPS`, 0, 0);
         text.render(currentRoom.name, canvas.width-(text.charWidth*(currentRoom.name.length)), 0);
 
         debugStatuses.push("Debug mode");
-
+        if (findDuplicateIds(gameRoom.objects).length >= 1) debugStatuses.push(`WARN:Duplicate values found.${findDuplicateIds(gameRoom.objects).length}`);
+        debugStatuses.push(`MousePos:${Math.round(lastMousePos.x)},${Math.round(lastMousePos.y)}`);
     }
 
     // console.debug(debugStatuses);
@@ -338,9 +377,6 @@ let main = () => { // main game loop
     for (let index in shitToSplice) {
         debugStatuses.splice(index);
     }
-
-    currentRoom.draw();
-
 
     lastFrameTime = now;
     }

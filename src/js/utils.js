@@ -10,6 +10,19 @@ export const degreesToRadians = degrees => degrees * pi / 180;
 
 export const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+export const findDuplicateIds = (objectsArray) => {
+    const idOccurrences = {}; // Object to store ID occurrences
+
+    // Iterate through the array and count occurrences of each ID
+    objectsArray.forEach(obj => {
+        const id = obj.id;
+        idOccurrences[id] = (idOccurrences[id] || 0) + 1;
+    });
+
+    // Filter out IDs with occurrences greater than 1
+    return Object.keys(idOccurrences).filter(id => idOccurrences[id] > 1);
+}
+
 export const getDirectionBetweenTwoPoints = (x1, y1, x2, y2) => {
     const dX = x2 - x1;
     const dY = y2 - y1;

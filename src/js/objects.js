@@ -17,8 +17,13 @@ class Room extends GameObject {
 
     init(){}
 
-    destory(id=99999999) {
-        this.objects.findIndex(x => x.id === id);
+    remove(id = 99999999) {
+        let foundIndex = this.objects.findIndex(x => x.id === id);
+        console.debug(`Searched for ${id}, found at index ${foundIndex}`);
+
+        if (foundIndex !== -1) this.objects.splice(foundIndex, 1);
+
+        console.debug(this.objects);
     }
 
     draw() {
