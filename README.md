@@ -1,4 +1,6 @@
-# Untitled JS13K23 Game
+# Deilg-ei
+
+Bye's 2023 entry for [JS13K](https://js13kgames.com).
 
 ## Third Party Code
 

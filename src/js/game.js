@@ -242,7 +242,6 @@ if (!gameRoom.wave) gameRoom.wave = 0;
 
 const validTargets = [
     {x: 92, y: 97},
-    {x: 240, y: 120}
 ]
 
 gameRoom.wavePendingStart = 0;
