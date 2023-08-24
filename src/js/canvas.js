@@ -63,6 +63,11 @@ class Canvas {
         this.ctx.fillStyle = c;
         this.ctx.fillRect(x-this.cX, y-this.cY, w, h);
     }
+
+    strokeRect(x, y, w, h, c="white") {
+        this.ctx.strokeStyle = c;
+        this.ctx.strokeRect(x-this.cX, y-this.cY, w, h);
+    }
     
 }
 

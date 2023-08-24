@@ -195,7 +195,7 @@ class Boat extends Entity {
         this.sprite = sprite;
         this.speed = speed;
         if (speed === 0) speed = 0.5;
-        this.stepspeed = randomInt(Math.floor(100/speed), Math.floor(1000/speed));
+        this.stepspeed = randomInt(Math.floor(500/speed), Math.floor(1500/speed));
         this.target = target;
     }
 
@@ -248,7 +248,9 @@ gameRoom.wavePendingStart = 0;
 gameRoom.boatCount = 0;
 gameRoom.boatSpeed = 0;
 
-gameRoom.boatAvoid = {}
+gameRoom.boatAvoid = [
+    {x: 35, y: 100, w: 32, h: 75}
+];
 
 console.log(typeof(gameRoom.remove))
 
@@ -276,6 +278,10 @@ gameRoom.draw = () => {
     canvas.drawImage(assets.images.island, (canvas.width/2 - assets.images.island.width/2)-canvas.cX, (canvas.height/2 - assets.images.island.height/2)-canvas.cY);
     for (const item of gameRoom.objects) {
         item.draw();
+    }
+
+    for (const hitbox of gameRoom.boatAvoid) {
+        canvas.strokeRect(hitbox.x, hitbox.y, hitbox.w, hitbox.h, "red");
     }
 }
 gameRoom.step = _ => {
