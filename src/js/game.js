@@ -190,8 +190,8 @@ menuRoom.keyDown = (key) => {
 class Boat extends Entity {
     constructor(x, y, sprite, speed =1, id=randomInt(100, 10000), target={x:0,y:0}) {
         super(id, x, y);
-        this.boatbody = 0;
-        this.boatsail = 0;
+        this.boatbody = randomInt(0,2);
+        this.boatsail = randomInt(0,2);
         this.sprite = sprite;
         this.speed = speed;
         if (speed === 0) speed = 0.5;
@@ -248,6 +248,8 @@ gameRoom.wavePendingStart = 0;
 gameRoom.boatCount = 0;
 gameRoom.boatSpeed = 0;
 
+gameRoom.boatAvoid = {}
+
 console.log(typeof(gameRoom.remove))
 
 gameRoom.startWave = _ => {
@@ -282,7 +284,7 @@ gameRoom.step = _ => {
         if (item.constructor.name === "Boat") numberOfBoats++;
         item.step();
     }
-    if (numberOfBoats === 0 && !gameRoom.wavePendingStart) {gameRoom.wave++; gameRoom.wavePendingStart=1; setTimeout(gameRoom.startWave, 3000)};
+    if (numberOfBoats === 0 && !gameRoom.wavePendingStart) {gameRoom.wave++; gameRoom.wavePendingStart=1; setTimeout(gameRoom.startWave, 3000)}
     if (gameRoom.wave >= 401) endRoom.wonGame();
 }
 gameRoom.drawGUI = () => {
