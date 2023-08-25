@@ -249,7 +249,8 @@ gameRoom.boatCount = 0;
 gameRoom.boatSpeed = 0;
 
 gameRoom.boatAvoid = [
-    {x: 35, y: 100, w: 32, h: 75}
+    {x: 73, y: 102, w: 83, h: 67},
+    {x: 186, y: 42, w: 39, h: 31}
 ];
 
 console.log(typeof(gameRoom.remove))
@@ -390,12 +391,10 @@ let main = () => { // main game loop
 
 let init = () => {
     // begin loading all the assets.
-    currentRoom.updateStatus("Loading images...");
     let errors = [];
     const imagesToLoad = Object.keys(assets.images).length;
     let imagesLoaded = 0;
     for (let image in assets.images) {
-        currentRoom.updateStatus("Loading image " + image);
         let img = new Image();
         img.src = imgPrefix + assets.images[image];
         img.onerror = (err) => {
@@ -404,24 +403,24 @@ let init = () => {
 
         }
         img.onload = () => {
-            console.log("Loaded "+ image);
+            currentRoom.updateStatus("Loaded "+ image);
             assets.images[image] = img;
             imagesLoaded++;
-            errors.push("Loaded "+ image);
         }
     }
-    currentRoom.updateStatus("Loading complete!");
 
 
     let waitingForLoadingToFinish = setInterval(() => {
         if (imagesLoaded === imagesToLoad) {
             clearInterval(waitingForLoadingToFinish);
+            let splashTime;
+            getParameter("skipsplash") ? splashTime = 0 : splashTime = 1000;
             setTimeout(() => {
                 console.log(assets.images);
                 (getParameter("room") ? changeRoom(searchForRoom(getParameter("room"))) : changeRoom(searchForRoom("menu")));
                 currentRoom.init();
                 main();
-            }, 1000);
+            }, splashTime);
         }
         if (errors.length > 0) {
             for (let i = 0; i < errors.length; i++) {
