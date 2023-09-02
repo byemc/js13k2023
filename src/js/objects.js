@@ -1,4 +1,9 @@
 class GameObject {
+    constructor(id=0) {
+        this.x = 0;
+        this.y = 0;
+        this.id = 0; // rooms have an id of zero.
+    }
     draw() {}
     step() {}
     keyDown(key) {}
@@ -8,11 +13,13 @@ class GameObject {
 
 
 class Room extends GameObject {
-    constructor(name="") {
+    constructor(name="", w=256, h=240) {
         super();
-        this.objects = [];
-        this.name = name; // needs to be unique, otherwise the searching code will just use the first one it finds.
+        this.objects    = [];
+        this.name       = name; // needs to be unique, otherwise the searching code will just use the first one it finds.
         this.background = "#000000";
+        this.width      = w;
+        this.height     = h;
     }
 
     init(){}
@@ -49,6 +56,13 @@ class Room extends GameObject {
 
 }
 
+class Camera extends GameObject {
+    constructor() {
+        super(); // Cameras are special objects, they don't have an id.
+        this.scale = 1;
+        this.rotation = 0;
+    }
+}
 
 
-export { GameObject, Room };
+export { GameObject, Room, Camera };

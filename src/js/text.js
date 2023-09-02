@@ -28,7 +28,7 @@ class TextRenderer {
         let yOffset = 0;
         // if the letter is ",", offset it by -1
         if (letter === ",") yOffset = 1;
-        canvas.sliceImage(this.fontimg, x+canvas.cX, y + yOffset + canvas.cY, fontWidth, fontHeight, sx, sy, fontWidth, fontHeight); 
+        canvas.sliceImage(this.fontimg, x, y + yOffset, fontWidth, fontHeight, sx, sy, fontWidth, fontHeight, 0, true);
             // canvas.cX and canvas.cY are the camera offsets. we don't want to have text flying off the screen.
             // you can counteract this by specifying x-cX and x-cY when calling this.
     }

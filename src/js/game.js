@@ -2,14 +2,14 @@
 import { WIDTH, HEIGHT, GAME_TITLE } from "./config.js";
 import { Canvas } from "./canvas.js";
 import { TextRenderer } from "./text.js";
-import { Room, GameObject } from "./objects.js";
+import { Room, GameObject, Camera } from "./objects.js";
 import {
     pi,
     getParameter,
     getDirectionBetweenTwoPoints,
     degreesToRadians,
     randomInt,
-    calculateDistanceBetweenTwoPoints, findDuplicateIds
+    calculateDistanceBetweenTwoPoints, findDuplicateIds, pathfind
 } from "./utils.js";
 import { getMousePos } from "./inputs/mouse.js";
 import { isKeyUp, whichKeyDown } from "./inputs/keyboard.js";
@@ -39,7 +39,9 @@ let debug = getParameter("debug") || 0;
 
 let rooms = [];
 let debugStatuses = [];
-let canvas = new Canvas("c", WIDTH, HEIGHT);
+let mainCamera = new Camera();
+mainCamera.scale = 1;
+let canvas = new Canvas("c", WIDTH, HEIGHT, mainCamera);
 let text;
 
 let pressedLastFrame = [];
@@ -92,6 +94,10 @@ let searchForRoom = (name) => {
 }
 
 const changeRoom = (index) => {
+    mainCamera.x = 0;
+    mainCamera.y = 0;
+    mainCamera.scale = 1;
+    mainCamera.rotation = 0;
     currentRoom = rooms[index];
     roomIndex = index;
     currentRoom.init();
@@ -141,8 +147,12 @@ debugRoom.keyDown = (key) => {
     if (debugRoom.index < 0) debugRoom.index = debugRoom.options[debugRoom.submenu].length-1;
 }
 
-debugRoom.draw = () => {
+debugRoom.step = () => {
+    mainCamera.x = Math.sin(currentFrame /(canvas.width / 2)) * canvas.width - 32;
+}
 
+debugRoom.draw = () => {
+    canvas.drawLine(0,0,0,canvas.height);
     canvas.drawRect(Math.sin(currentFrame /(canvas.width / 2)) * canvas.width - 32, canvas.height-64, 32, 32, "#222034");
 }
 debugRoom.drawGUI = () => {
@@ -194,36 +204,42 @@ class Boat extends Entity {
         this.boatsail = randomInt(0,2);
         this.sprite = sprite;
         this.speed = speed;
-        if (speed === 0) speed = 0.5;
-        this.stepspeed = randomInt(Math.floor(500/speed), Math.floor(1500/speed));
+        if (speed === 0) this.speed = 0.5;
+        this.stepspeed = randomInt(Math.floor(500/this.speed), Math.floor(1000/this.speed));
         this.target = target;
+        this.moved = 0;
     }
 
 
     step() {
-        if (!(currentFrame % this.stepspeed)) {
-            this.direction = getDirectionBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y);
+        let { stepspeed, x, y, target, id, moved } = this;
+        if (!(currentFrame % stepspeed)) {
+            this.direction = getDirectionBetweenTwoPoints(x, y, target.x, target.y);
             this.x += 2 * Math.cos(this.direction);
             this.y += 2 * Math.sin(this.direction);
         }
 
-        if (calculateDistanceBetweenTwoPoints(this.x, this.y, this.target.x, this.target.y) < 5) {
-            console.debug(`${this.id} is going bye-bye!`);
-            gameRoom.remove(this.id);
+        const dist = calculateDistanceBetweenTwoPoints(x, y, target.x, target.y);
+        if (dist < 5) {
+            console.debug(`${id} is going bye-bye!`);
+            currentRoom.remove(id);
         }
+        debugStatuses.push(`${id}:${dist}px`)
+
     }
 
     draw() {
-        const displayDirection = this.direction + (pi / 2); // should move PI0.5 clockwise
+        // const displayDirection = this.direction + (pi / 2); // should move PI0.5 clockwise
+        const displayDirection = 0;
         canvas.sliceImage(this.sprite, this.x-2.5, this.y-4, 5, 8, (5*this.boatbody), 0, 5, 8, displayDirection); //body
         canvas.sliceImage(this.sprite, this.x-2.5, this.y-4, 5, 8, (5*this.boatsail), 8, 5, 8, displayDirection); //sail
 
-        if (debug) text.render(`${this.id}`, this.x - 2, this.y - 2);
+        if (debug) canvas.drawLine(this.x, this.y, this.target.x, this.target.y);
     }
 
-    onclick(pos) {
-        this.target = pos;
-    }
+    // onclick(pos) {
+    //     this.target = pos;
+    // }
 }
 
 const endRoom = new Room("end");
@@ -237,6 +253,9 @@ endRoom.wonGame = () => {
 }
 
 const gameRoom = new Room("game");
+gameRoom.init = _ => {
+    mainCamera.scale = 1;
+}
 gameRoom.wave = getParameter("wave");
 if (!gameRoom.wave) gameRoom.wave = 0;
 
@@ -249,8 +268,7 @@ gameRoom.boatCount = 0;
 gameRoom.boatSpeed = 0;
 
 gameRoom.boatAvoid = [
-    {x: 73, y: 102, w: 83, h: 67},
-    {x: 186, y: 42, w: 39, h: 31}
+    {x: 106, y: 84, w: 83, h: 67},
 ];
 
 console.log(typeof(gameRoom.remove))
@@ -259,7 +277,7 @@ gameRoom.startWave = _ => {
     let { wave, boatCount, boatSpeed } = gameRoom;
     gameRoom.wavePendingStart = 0;
     boatCount = Math.floor(1 + (wave * 4));
-    boatSpeed = 3 + (wave * 1.1);
+    boatSpeed = 6 + (wave * 1.1);
 
     for (let i = 0; i <= boatCount; i++) {
         const randomDirection = degreesToRadians(Math.random()*360);
@@ -272,11 +290,11 @@ gameRoom.startWave = _ => {
     }
 }
 
-// gameRoom.init = _ => gameRoom.startWave();
+
 
 gameRoom.background = "#305182"
 gameRoom.draw = () => {
-    canvas.drawImage(assets.images.island, (canvas.width/2 - assets.images.island.width/2)-canvas.cX, (canvas.height/2 - assets.images.island.height/2)-canvas.cY);
+    canvas.drawImage(assets.images.island, (canvas.width/2 - assets.images.island.width/2), (canvas.height/2 - assets.images.island.height/2));
     for (const item of gameRoom.objects) {
         item.draw();
     }
@@ -304,10 +322,78 @@ gameRoom.onclick = (pos) => {
     }
 }
 
+const testRoom = new Room("tiles", 512, 512);
+testRoom.tileSize=8;
+testRoom.tileWidth = testRoom.width / testRoom.tileSize;
+testRoom.tileHeight = testRoom.height / testRoom.tileSize;
+testRoom.currentTile = {x:0,y:0};
+testRoom.lastClickedTile = {x:-10,y:0};
+testRoom.pathfinded = [];
+testRoom.step = _ => {
+    testRoom.currentTile.x = Math.floor(lastMousePos.x/testRoom.tileSize);
+    testRoom.currentTile.y = Math.floor(lastMousePos.y/testRoom.tileSize);
 
+    testRoom.pathfinded = pathfind(testRoom.lastClickedTile.x, testRoom.lastClickedTile.y, testRoom.currentTile.x, testRoom.currentTile.y);
 
+    debugStatuses.push(`Dimension:${testRoom.tileWidth},${testRoom.tileHeight}`);
+    debugStatuses.push(`Camera scale:${mainCamera.scale}`);
+    debugStatuses.push(`Last Clicked Tile:${testRoom.lastClickedTile.x},${testRoom.lastClickedTile.y}`);
+    debugStatuses.push(`Current Tile:${testRoom.currentTile.x},${testRoom.currentTile.y}`);
+    debugStatuses.push(`Difference:${testRoom.currentTile.x-testRoom.lastClickedTile.x},${testRoom.currentTile.y-testRoom.lastClickedTile.y}`)
+    debugStatuses.push(`Pathfind direction:${testRoom.pathfinded}`);
+}
+testRoom.onclick = (pos) => {
+    testRoom.lastClickedTile.x = Math.floor(pos.x/testRoom.tileSize);
+    testRoom.lastClickedTile.y = Math.floor(pos.y/testRoom.tileSize);
+}
+testRoom.draw = _ => {
+    for (let x = 0; x < testRoom.width; x+=testRoom.tileSize) {
+        for (let y = 0; y < testRoom.height; y+=testRoom.tileSize) {
+            canvas.strokeRect(x, y, testRoom.tileSize, testRoom.tileSize, "#222034");
+        }
+    }
+    // draw the tile grid.
+    for (let x = 0; x < testRoom.width; x+=testRoom.tileSize) {
+        for (let y = 0; y < testRoom.height; y+=testRoom.tileSize) {
+            canvas.strokeRect(x, y, testRoom.tileSize, testRoom.tileSize, "#222034");
+        }
+    }
+    canvas.strokeRect(testRoom.lastClickedTile.x*testRoom.tileSize, testRoom.lastClickedTile.y*testRoom.tileSize, testRoom.tileSize, testRoom.tileSize, "red");
+    canvas.strokeRect(testRoom.currentTile.x*testRoom.tileSize, testRoom.currentTile.y*testRoom.tileSize, testRoom.tileSize, testRoom.tileSize, "#b24d0d");
 
-rooms.push(loadingRoom, menuRoom, debugRoom, gameRoom, endRoom);
+    for (let path of testRoom.pathfinded) {
+        console.log(path);
+        let destinationTile = {x: path.x, y: path.y};
+        switch (path.direction) {
+            case 1:
+                destinationTile.y--;
+                break;
+            case 2:
+                destinationTile.x++;
+                break;
+            case 3:
+                destinationTile.y++;
+                break;
+            case 4:
+                destinationTile.x--;
+                break;
+        }
+        canvas.drawLine((path.x*8)-4, (path.y*8)-4, (destinationTile.x*8)-4, (destinationTile.y*8)-4, "white");
+    }
+}
+testRoom.keyDown = (key) => {
+    if (pressedLastFrame[key]) return;
+    
+    const keyActions = {
+        ArrowUp: () => mainCamera.scale = ((mainCamera.scale*10)+1)/10,
+        ArrowDown: () => mainCamera.scale = ((mainCamera.scale*10)-1)/10,
+    }
+
+    const action = keyActions[key];
+    if (action) action();
+}
+
+rooms.push(loadingRoom, menuRoom, debugRoom, gameRoom, endRoom, testRoom);
 
 
 currentRoom = rooms[roomIndex];
@@ -315,13 +401,14 @@ currentRoom = rooms[roomIndex];
 let lastMousePos = {x:0,y:0}
 
 const sendMouseToCurrentRoom = evt => {
-    const mousePos = getMousePos(canvas.canvas, evt);
+    const tempMousePos = getMousePos(canvas.canvas, evt);
+    const mousePos = {x:tempMousePos.x/mainCamera.scale,y:tempMousePos.y/mainCamera.scale};
     currentRoom.onclick(mousePos);
 }
 canvas.canvas.addEventListener('mousedown', evt=>sendMouseToCurrentRoom(evt), false);
 canvas.canvas.addEventListener('mousemove', evt => {
     const mousePos = getMousePos(canvas.canvas, evt);
-    lastMousePos={x:mousePos.x,y:mousePos.y}
+    lastMousePos={x:mousePos.x/mainCamera.scale,y:mousePos.y/mainCamera.scale}
 })
 
 
@@ -353,10 +440,16 @@ let main = () => { // main game loop
     pressedLastFrame = currentKeys;
 
     const fps = Math.round(1000 / delta);
-    let fpsColor;
-    (fps > 50) ? fpsColor = "#0d7200" : "#b24d0d";
-    (fps < 40) ? fpsColor = "#8a0000" : "#b24d0d";
-    canvas.drawRect(0,0,20,5, fpsColor);
+    let fpsColor = "#0d7200";
+    if (fps < 30) {
+        fpsColor = "#8a0000";
+        debugStatuses.push("FPS is severly low. Please contact Bye.");
+    } else if (fps <= 45) {
+        fpsColor = "#b24d0d";
+        debugStatuses.push("FPS is low. Please contact Bye.");
+    }
+
+    canvas.drawRect(0,0,20,5, fpsColor, 1);
     text.render(`${fps}/${targetFrames}FPS`, 0, 0);
     if (debug) {
         text.render(currentRoom.name, canvas.width-(text.charWidth*(currentRoom.name.length)), 0);

@@ -12,8 +12,11 @@
     "build:zipSize": "node scripts/zipSize.js",
     "start": "npm-run-all -s clean -p dev:*",
     "dev:js": "esbuild src/js/game.js --bundle --format=iife --loader:.webp=dataurl --sourcemap --outfile=dist/game.js --watch",
+    "dev:inject_images": "node scripts/convertImagesToBase256.js",
+    "ndev:copy_html_index": "cp src/index.html dist/",
     "dev:serve_watch_html_js": "browser-sync dist src --watch --host 0.0.0.0 --https --open false",
-    "dev:watch_img": "chokidar src/img -d 0 -c 'npm run dev:js'"
+    "dev:serve_nowatch": "cd dist/ && serve .",
+    "dev:watch_img": "chokidar src -d 0 -c 'npm run dev:js'"
   },
   "license": "MIT",
   "devDependencies": {
@@ -28,6 +31,7 @@
     "tinify": "^1.6.0-beta.2"
   },
   "dependencies": {
+    "image-to-base64": "^2.2.0",
     "npm": "^9.8.0"
   },
   "repository": {
